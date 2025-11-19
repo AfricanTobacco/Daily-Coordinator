@@ -14,6 +14,11 @@ provider "google" {
 }
 
 # Enable required GCP APIs
+resource "google_project_service" "pubsub" {
+  service            = "pubsub.googleapis.com"
+  disable_on_destroy = false
+}
+
 resource "google_project_service" "firestore" {
   service            = "firestore.googleapis.com"
   disable_on_destroy = false
@@ -74,12 +79,14 @@ resource "google_pubsub_topic" "coordinator_events" {
   }
 
   message_retention_duration = "86400s" # 24 hours
+
+  depends_on = [google_project_service.pubsub]
 }
 
 # GCP Pub/Sub Subscription (Pull-based)
 resource "google_pubsub_subscription" "coordinator_processing" {
   name  = var.gcp_pubsub_subscription_name
-  topic = google_pubsub_topic.coordinator_events.name
+  topic = google_pubsub_topic.coordinator_events.id
 
   # Message retention for 7 days
   message_retention_duration = "604800s"
@@ -103,6 +110,8 @@ resource "google_pubsub_subscription" "coordinator_processing" {
     managed_by  = "terraform"
     project     = "daily-coordinator"
   }
+
+  depends_on = [google_pubsub_topic.coordinator_events]
 }
 
 # IAM binding for service account to publish to topic
@@ -110,6 +119,8 @@ resource "google_pubsub_topic_iam_member" "publisher" {
   topic  = google_pubsub_topic.coordinator_events.name
   role   = "roles/pubsub.publisher"
   member = "serviceAccount:${google_service_account.pubsub_publisher.email}"
+
+  depends_on = [google_pubsub_topic.coordinator_events]
 }
 
 # IAM binding for service account to subscribe (for testing/monitoring)
@@ -117,6 +128,8 @@ resource "google_pubsub_subscription_iam_member" "subscriber" {
   subscription = google_pubsub_subscription.coordinator_processing.name
   role         = "roles/pubsub.subscriber"
   member       = "serviceAccount:${google_service_account.pubsub_publisher.email}"
+
+  depends_on = [google_pubsub_subscription.coordinator_processing]
 }
 
 # Outputs for GCP resources
