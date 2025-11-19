@@ -69,7 +69,7 @@ variable "dynamodb_table_name" {
 variable "s3_bucket_name" {
   type        = string
   description = "Name of the S3 bucket for caching"
-  
+
   validation {
     condition     = can(regex("^[a-z0-9][a-z0-9-]*[a-z0-9]$", var.s3_bucket_name))
     error_message = "S3 bucket name must start with lowercase letter or number, contain only lowercase letters, numbers, and hyphens."

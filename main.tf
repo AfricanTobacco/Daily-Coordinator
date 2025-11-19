@@ -1,24 +1,10 @@
-terraform {
-  required_version = ">= 1.0"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    google = {
-      source  = "hashicorp/google"
-      version = "~> 5.0"
-    }
-  }
-}
-
 provider "aws" {
   region = var.aws_region
 }
 
 # CloudWatch Log Group for Lambda
 resource "aws_cloudwatch_log_group" "lambda_logs" {
-  name              = "/aws/lambda/${aws_lambda_function.coordinator.function_name}"
+  name              = "/aws/lambda/${var.lambda_function_name}"
   retention_in_days = var.log_retention_days
 
   tags = local.common_tags
@@ -133,10 +119,10 @@ resource "aws_lambda_permission" "allow_sns_to_invoke_slack" {
 
 # DynamoDB Table - CoordinatorState
 resource "aws_dynamodb_table" "coordinator_state" {
-  name           = var.dynamodb_table_name
-  billing_mode   = "PAY_PER_REQUEST" # On-demand pricing
-  hash_key       = "coordinator_id"
-  range_key      = "timestamp"
+  name         = var.dynamodb_table_name
+  billing_mode = "PAY_PER_REQUEST" # On-demand pricing
+  hash_key     = "coordinator_id"
+  range_key    = "timestamp"
 
   attribute {
     name = "coordinator_id"
@@ -263,14 +249,4 @@ data "archive_file" "slack_lambda_zip" {
   type        = "zip"
   source_file = "${path.module}/lambda/slack_poster.py"
   output_path = "${path.module}/slack_lambda_function.zip"
-}
-
-# Local variables
-locals {
-  common_tags = {
-    Project     = "DailyCoordinator"
-    Environment = var.environment
-    ManagedBy   = "Terraform"
-    CreatedAt   = timestamp()
-  }
 }

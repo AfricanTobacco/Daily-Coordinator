@@ -51,9 +51,9 @@ data "aws_iam_policy_document" "lambda_s3_policy" {
   version = "2012-10-17"
 
   statement {
-    sid       = "S3BucketRead"
-    effect    = "Allow"
-    actions   = [
+    sid    = "S3BucketRead"
+    effect = "Allow"
+    actions = [
       "s3:GetObject",
       "s3:ListBucket",
       "s3:GetObjectVersion"
@@ -65,9 +65,9 @@ data "aws_iam_policy_document" "lambda_s3_policy" {
   }
 
   statement {
-    sid       = "S3BucketWrite"
-    effect    = "Allow"
-    actions   = [
+    sid    = "S3BucketWrite"
+    effect = "Allow"
+    actions = [
       "s3:PutObject",
       "s3:PutObjectAcl"
     ]
