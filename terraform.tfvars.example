@@ -1,0 +1,34 @@
+# Terraform Variables File - Update these values for your deployment
+# Copy to terraform.tfvars and customize
+
+aws_region = "us-west-2"
+environment = "dev"
+
+lambda_function_name = "daily-coordinator-agent"
+lambda_runtime = "python3.11"
+lambda_memory_size = 256
+lambda_timeout = 300
+
+eventbridge_rule_name = "daily-coordinator-schedule"
+
+dynamodb_table_name = "CoordinatorState"
+
+# IMPORTANT: S3 bucket names must be globally unique
+# Change this to a unique name for your organization
+s3_bucket_name = "sas-ops-cache-daily-coordinator-001"
+
+sns_topic_name = "daily-coordinator-alerts"
+
+log_retention_days = 14
+
+secrets_manager_secret_name = "daily-coordinator-secrets"
+
+enable_point_in_time_recovery = true
+s3_enable_versioning = true
+
+# Additional tags (optional)
+tags = {
+  Team        = "Operations"
+  CostCenter  = "Engineering"
+  Owner       = "DevOps"
+}
