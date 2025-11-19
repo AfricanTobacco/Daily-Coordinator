@@ -10,13 +10,14 @@ EventBridge (Daily 8 AM PST)
 Lambda Function (Python 3.11, 256MB)
     ├→ DynamoDB (CoordinatorState)
     ├→ S3 (sas-ops-cache, versioned, encrypted)
-    ├→ Secrets Manager (credentials)
-    └→ SNS Topic (alerts)
+    ├→ Secrets Manager (credentials + GCP key)
+    ├→ SNS Topic (alerts)
+    │      ↓
+    │   Slack Poster Lambda → Slack Webhook
+    └→ GCP Pub/Sub Topic → Subscription
     
 CloudWatch Logs → Log Group (/aws/lambda/...)
-```
-
-## Project Structure
+```## Project Structure
 
 ```
 .
@@ -25,7 +26,9 @@ CloudWatch Logs → Log Group (/aws/lambda/...)
 ├── iam.tf                     # IAM role and policies (least privilege)
 ├── outputs.tf                 # Output values
 ├── lambda/
-│   └── index.py              # Lambda function code
+│   ├── index.py              # Lambda function code
+│   ├── slack_poster.py       # Slack poster Lambda code
+│   └── gcp_pubsub.py         # GCP Pub/Sub publisher module
 ├── terraform.tfvars.example   # Variable values template
 └── README.md                  # This file
 ```
@@ -73,6 +76,18 @@ CloudWatch Logs → Log Group (/aws/lambda/...)
 - Lambda publish permissions
 - Custom alert messages
 
+✅ **Slack Poster Lambda**
+- Dedicated Lambda subscribes to the SNS alerts topic
+- Fetches Slack webhook from Secrets Manager
+- Posts "Task updated" summaries to the configured Slack channel
+
+✅ **GCP Pub/Sub Integration**
+- Cross-cloud messaging for hybrid AWS/GCP workflows
+- Service account authentication via Secrets Manager
+- Topic + subscription with 7-day retention
+- IAM least-privilege publisher/subscriber roles
+- Optional Lambda decorator for automatic event publishing
+
 ## Prerequisites
 
 1. **Terraform** >= 1.0
@@ -110,9 +125,16 @@ aws secretsmanager create-secret \
   --name daily-coordinator-secrets \
   --secret-string '{"api_key":"your-api-key","auth_token":"your-token"}' \
   --region us-west-2
-```
 
-### Step 4: Plan the Deployment
+# Slack webhook secret (stores the incoming webhook URL)
+aws secretsmanager create-secret \
+  --name daily-coordinator-slack-webhook \
+  --secret-string '{"slack_webhook_url":"https://hooks.slack.com/services/XXX/YYY/ZZZ"}' \
+  --region us-west-2
+
+# Note: GCP service account key is auto-created and stored by Terraform
+# in daily-coordinator-gcp-pubsub-key secret
+```### Step 4: Plan the Deployment
 
 ```bash
 terraform plan -out=tfplan
@@ -163,6 +185,26 @@ S3_BUCKET          # S3 bucket name
 SNS_TOPIC_ARN      # SNS topic ARN
 SECRETS_MANAGER_ARN # Secrets Manager secret ARN
 ```
+
+### Slack Poster Lambda
+
+- Subscribed to the SNS alerts topic so every coordinator alert is mirrored to Slack.
+- Secret `slack_webhook_url` is retrieved from `var.slack_webhook_secret_name` using Secrets Manager.
+- Environment variables:
+
+```python
+SLACK_WEBHOOK_SECRET_NAME  # Secrets Manager secret name
+SLACK_WEBHOOK_SECRET_KEY   # JSON key that stores the webhook URL
+SLACK_CHANNEL              # Optional channel override (e.g., #daily-coordinator)
+SLACK_USERNAME             # Display name for the bot
+SLACK_ICON_EMOJI           # Emoji used as the bot icon
+SLACK_MESSAGE_PREFIX       # Defaults to ":information_source: Task updated"
+```
+
+**Event flow**
+1. `aws_lambda_function.coordinator` publishes an alert to SNS.
+2. The SNS topic invokes the Slack poster Lambda.
+3. The Slack Lambda formats a "Task updated" message and calls the Slack webhook.
 
 ### DynamoDB Schema
 

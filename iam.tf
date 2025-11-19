@@ -6,6 +6,13 @@ resource "aws_iam_role" "lambda_role" {
   tags = local.common_tags
 }
 
+resource "aws_iam_role" "slack_lambda_role" {
+  name               = "${var.slack_lambda_function_name}-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+
+  tags = local.common_tags
+}
+
 # Lambda Assume Role Policy
 data "aws_iam_policy_document" "lambda_assume_role" {
   version = "2012-10-17"
@@ -25,6 +32,11 @@ data "aws_iam_policy_document" "lambda_assume_role" {
 # Attach AWS managed policy for basic Lambda execution (CloudWatch Logs)
 resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
   role       = aws_iam_role.lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "slack_lambda_basic_execution" {
+  role       = aws_iam_role.slack_lambda_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
@@ -128,7 +140,8 @@ data "aws_iam_policy_document" "lambda_secrets_policy" {
       "secretsmanager:DescribeSecret"
     ]
     resources = [
-      "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${var.secrets_manager_secret_name}*"
+      "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${var.secrets_manager_secret_name}*",
+      "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${var.gcp_pubsub_secret_name}*"
     ]
   }
 }
@@ -151,6 +164,29 @@ data "aws_iam_policy_document" "lambda_sns_policy" {
     ]
     resources = [
       aws_sns_topic.alerts.arn
+    ]
+  }
+}
+
+# Slack poster Lambda permissions
+resource "aws_iam_role_policy" "slack_lambda_secrets_policy" {
+  name   = "${var.slack_lambda_function_name}-secrets-policy"
+  role   = aws_iam_role.slack_lambda_role.id
+  policy = data.aws_iam_policy_document.slack_lambda_secrets_policy.json
+}
+
+data "aws_iam_policy_document" "slack_lambda_secrets_policy" {
+  version = "2012-10-17"
+
+  statement {
+    sid    = "SlackSecretsManagerRead"
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:DescribeSecret"
+    ]
+    resources = [
+      "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${var.slack_webhook_secret_name}*"
     ]
   }
 }

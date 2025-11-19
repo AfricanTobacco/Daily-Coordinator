@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
   }
 }
 
@@ -15,6 +19,13 @@ provider "aws" {
 # CloudWatch Log Group for Lambda
 resource "aws_cloudwatch_log_group" "lambda_logs" {
   name              = "/aws/lambda/${aws_lambda_function.coordinator.function_name}"
+  retention_in_days = var.log_retention_days
+
+  tags = local.common_tags
+}
+
+resource "aws_cloudwatch_log_group" "slack_lambda_logs" {
+  name              = "/aws/lambda/${var.slack_lambda_function_name}"
   retention_in_days = var.log_retention_days
 
   tags = local.common_tags
@@ -34,16 +45,50 @@ resource "aws_lambda_function" "coordinator" {
 
   environment {
     variables = {
-      DYNAMODB_TABLE      = aws_dynamodb_table.coordinator_state.name
-      S3_BUCKET           = aws_s3_bucket.sas_ops_cache.id
-      SNS_TOPIC_ARN       = aws_sns_topic.alerts.arn
-      SECRETS_MANAGER_ARN = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${var.secrets_manager_secret_name}"
+      DYNAMODB_TABLE         = aws_dynamodb_table.coordinator_state.name
+      S3_BUCKET              = aws_s3_bucket.sas_ops_cache.id
+      SNS_TOPIC_ARN          = aws_sns_topic.alerts.arn
+      SECRETS_MANAGER_ARN    = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${var.secrets_manager_secret_name}"
+      GCP_PUBSUB_SECRET_NAME = var.gcp_pubsub_secret_name
+      GCP_PROJECT_ID         = var.gcp_project_id
+      GCP_PUBSUB_TOPIC       = var.gcp_pubsub_topic_name
     }
   }
 
   depends_on = [
     aws_iam_role_policy_attachment.lambda_basic_execution,
     aws_cloudwatch_log_group.lambda_logs
+  ]
+
+  tags = local.common_tags
+}
+
+resource "aws_lambda_function" "slack_poster" {
+  filename         = data.archive_file.slack_lambda_zip.output_path
+  function_name    = var.slack_lambda_function_name
+  role             = aws_iam_role.slack_lambda_role.arn
+  handler          = "slack_poster.lambda_handler"
+  runtime          = var.lambda_runtime
+  memory_size      = 128
+  timeout          = 30
+  description      = "Posts Daily Coordinator task updates to Slack"
+  source_code_hash = data.archive_file.slack_lambda_zip.output_base64sha256
+
+  environment {
+    variables = {
+      SLACK_WEBHOOK_SECRET_NAME = var.slack_webhook_secret_name
+      SLACK_WEBHOOK_SECRET_KEY  = var.slack_webhook_secret_key
+      SLACK_CHANNEL             = var.slack_channel
+      SLACK_USERNAME            = var.slack_username
+      SLACK_ICON_EMOJI          = var.slack_icon_emoji
+      SLACK_MESSAGE_PREFIX      = ":information_source: Task updated"
+    }
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.slack_lambda_basic_execution,
+    aws_iam_role_policy.slack_lambda_secrets_policy,
+    aws_cloudwatch_log_group.slack_lambda_logs
   ]
 
   tags = local.common_tags
@@ -76,6 +121,14 @@ resource "aws_lambda_permission" "allow_eventbridge" {
   function_name = aws_lambda_function.coordinator.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.daily_schedule.arn
+}
+
+resource "aws_lambda_permission" "allow_sns_to_invoke_slack" {
+  statement_id  = "AllowSNSToInvokeSlackPoster"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.slack_poster.function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = aws_sns_topic.alerts.arn
 }
 
 # DynamoDB Table - CoordinatorState
@@ -188,6 +241,14 @@ resource "aws_sns_topic_policy" "alerts_policy" {
   })
 }
 
+resource "aws_sns_topic_subscription" "alerts_to_slack" {
+  topic_arn = aws_sns_topic.alerts.arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.slack_poster.arn
+
+  depends_on = [aws_lambda_permission.allow_sns_to_invoke_slack]
+}
+
 # Data source for current AWS account
 data "aws_caller_identity" "current" {}
 
@@ -196,6 +257,12 @@ data "archive_file" "lambda_zip" {
   type        = "zip"
   source_file = "${path.module}/lambda/index.py"
   output_path = "${path.module}/lambda_function.zip"
+}
+
+data "archive_file" "slack_lambda_zip" {
+  type        = "zip"
+  source_file = "${path.module}/lambda/slack_poster.py"
+  output_path = "${path.module}/slack_lambda_function.zip"
 }
 
 # Local variables

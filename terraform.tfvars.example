@@ -23,6 +23,27 @@ log_retention_days = 14
 
 secrets_manager_secret_name = "daily-coordinator-secrets"
 
+slack_lambda_function_name = "daily-coordinator-slack-poster"
+slack_webhook_secret_name  = "daily-coordinator-slack-webhook"
+slack_webhook_secret_key   = "slack_webhook_url"
+slack_channel              = "#daily-coordinator"
+slack_username             = "DailyCoordinatorBot"
+slack_icon_emoji           = ":spiral_calendar_pad:"
+
+# GCP Configuration
+gcp_project_id             = "daily-coordinator-sadc"
+gcp_region                 = "us-central1"
+gcp_pubsub_topic_name      = "daily-coordinator-events"
+gcp_pubsub_subscription_name = "coordinator-processing-sub"
+gcp_pubsub_secret_name     = "daily-coordinator-gcp-pubsub-key"
+gcp_firestore_region       = "africa-south1"
+
+# WhatsApp Configuration
+whatsapp_lambda_function_name = "daily-coordinator-whatsapp-sender"
+twilio_secret_name            = "daily-coordinator-twilio-creds"
+whatsapp_from_number          = "whatsapp:+14155238886"
+whatsapp_to_numbers           = "whatsapp:+27821234567,whatsapp:+27829876543"
+
 enable_point_in_time_recovery = true
 s3_enable_versioning = true
 

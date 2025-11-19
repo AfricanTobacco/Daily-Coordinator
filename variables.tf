@@ -99,6 +99,101 @@ variable "secrets_manager_secret_name" {
   default     = "daily-coordinator-secrets"
 }
 
+variable "slack_lambda_function_name" {
+  type        = string
+  description = "Name of the Slack poster Lambda function"
+  default     = "daily-coordinator-slack-poster"
+}
+
+variable "slack_webhook_secret_name" {
+  type        = string
+  description = "Secrets Manager secret that stores the Slack webhook payload or URL"
+  default     = "daily-coordinator-slack-webhook"
+}
+
+variable "slack_webhook_secret_key" {
+  type        = string
+  description = "Key inside the Slack webhook secret JSON payload that stores the webhook URL"
+  default     = "slack_webhook_url"
+}
+
+variable "slack_channel" {
+  type        = string
+  description = "Optional Slack channel override for the webhook"
+  default     = ""
+}
+
+variable "slack_username" {
+  type        = string
+  description = "Display name for the Slack bot"
+  default     = "DailyCoordinatorBot"
+}
+
+variable "slack_icon_emoji" {
+  type        = string
+  description = "Emoji icon for the Slack bot"
+  default     = ":spiral_calendar_pad:"
+}
+
+variable "gcp_project_id" {
+  type        = string
+  description = "GCP project ID for Pub/Sub resources"
+}
+
+variable "gcp_region" {
+  type        = string
+  description = "GCP region for Pub/Sub resources"
+  default     = "us-central1"
+}
+
+variable "gcp_pubsub_topic_name" {
+  type        = string
+  description = "Name of the GCP Pub/Sub topic"
+  default     = "daily-coordinator-events"
+}
+
+variable "gcp_pubsub_subscription_name" {
+  type        = string
+  description = "Name of the GCP Pub/Sub subscription"
+  default     = "coordinator-processing-sub"
+}
+
+variable "gcp_pubsub_secret_name" {
+  type        = string
+  description = "AWS Secrets Manager secret name for GCP service account key"
+  default     = "daily-coordinator-gcp-pubsub-key"
+}
+
+variable "gcp_firestore_region" {
+  type        = string
+  description = "GCP region for Firestore database"
+  default     = "africa-south1"
+}
+
+variable "whatsapp_lambda_function_name" {
+  type        = string
+  description = "Name of the WhatsApp sender Lambda function"
+  default     = "daily-coordinator-whatsapp-sender"
+}
+
+variable "twilio_secret_name" {
+  type        = string
+  description = "AWS Secrets Manager secret name for Twilio credentials"
+  default     = "daily-coordinator-twilio-creds"
+}
+
+variable "whatsapp_from_number" {
+  type        = string
+  description = "Twilio WhatsApp-enabled phone number (format: whatsapp:+1234567890)"
+  default     = "whatsapp:+14155238886"
+}
+
+variable "whatsapp_to_numbers" {
+  type        = string
+  description = "Comma-separated list of recipient WhatsApp numbers"
+  default     = ""
+}
+
 variable "enable_point_in_time_recovery" {
   type        = bool
   description = "Enable DynamoDB point-in-time recovery"

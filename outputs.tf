@@ -8,6 +8,16 @@ output "lambda_function_name" {
   value       = aws_lambda_function.coordinator.function_name
 }
 
+output "slack_lambda_function_arn" {
+  description = "ARN of the Slack poster Lambda function"
+  value       = aws_lambda_function.slack_poster.arn
+}
+
+output "slack_lambda_function_name" {
+  description = "Name of the Slack poster Lambda function"
+  value       = aws_lambda_function.slack_poster.function_name
+}
+
 output "lambda_role_arn" {
   description = "ARN of the Lambda IAM role"
   value       = aws_iam_role.lambda_role.arn
